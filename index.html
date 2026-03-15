@@ -1,15 +1,268 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="tr" class="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="../dist/output.css" rel="stylesheet">
-    <title>Tailwind v4 Template</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GoalPulse — Canlı Futbol Skorları</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' }
+  </script>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Custom styles -->
+  <link rel="stylesheet" href="src/style.css">
+
+  <style>
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+  </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen">
-    <div class="text-center p-10 bg-white rounded-xl shadow-2xl">
-        <h1 class="text-4xl font-extrabold text-blue-600">Başardın! 🚀</h1>
-        <p class="text-gray-500 mt-4">Tailwind v4 CLI ve Mac terminali ile kuruldu.</p>
+
+<body>
+
+<!-- ══════════════════════════════ HEADER ══════════════════════════════════ -->
+<header class="site-header sticky top-0 z-40">
+  <div style="max-width:896px;margin:0 auto;padding:0 16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;height:56px">
+
+      <!-- Logo -->
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:32px;height:32px;background:linear-gradient(135deg,#16a34a,#15803d);border-radius:9px;
+                    display:flex;align-items:center;justify-content:center;font-size:17px;
+                    box-shadow:0 4px 12px rgba(22,163,74,0.4)">⚽</div>
+        <span style="font-size:18px;font-weight:900;color:#f8fafc;letter-spacing:-.03em">
+          Goal<span style="color:#4ade80">Pulse</span>
+        </span>
+      </div>
+
+      <!-- Desktop nav tabs -->
+      <nav style="display:none;align-items:center;gap:4px" class="md:flex md:items-center md:gap-4" id="desktop-nav">
+        <button class="nav-tab active" data-view="scores"    onclick="setView('scores')">Skorlar</button>
+        <button class="nav-tab"        data-view="standings" onclick="setView('standings')">Puan Durumu</button>
+        <button class="nav-tab"        data-view="fixtures"  onclick="setView('fixtures')">Fikstür</button>
+        <button class="nav-tab"        data-view="stats"     onclick="setView('stats')">İstatistikler</button>
+      </nav>
+
+      <!-- Right controls -->
+      <div style="display:flex;align-items:center;gap:10px">
+        <!-- Desktop search -->
+        <div class="search-wrap" id="desktop-search-wrap">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/>
+          </svg>
+          <input class="search-input js-search" type="text" placeholder="Takım veya lig ara…">
+        </div>
+
+        <!-- Theme toggle -->
+        <button onclick="toggleDarkMode()" class="theme-btn" aria-label="Tema">
+          <span id="theme-icon" style="color:rgba(255,255,255,0.7);display:flex;align-items:center"></span>
+        </button>
+      </div>
+
     </div>
+  </div>
+</header>
+
+<!-- ════════════════════════════ LEAGUE FILTER ═════════════════════════════ -->
+<div class="filter-bar sticky z-30" style="top:56px">
+  <div style="max-width:896px;margin:0 auto">
+    <div id="league-filter"
+         style="display:flex;align-items:center;gap:8px;padding:10px 16px;overflow-x:auto">
+      <button class="pill-btn pill-league active" data-league="all"        onclick="setLeague('all')">Tümü</button>
+      <button class="pill-btn pill-league"        data-league="superlig"   onclick="setLeague('superlig')">🇹🇷 Süper Lig</button>
+      <button class="pill-btn pill-league"        data-league="premier"    onclick="setLeague('premier')">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League</button>
+      <button class="pill-btn pill-league"        data-league="laliga"     onclick="setLeague('laliga')">🇪🇸 La Liga</button>
+      <button class="pill-btn pill-league"        data-league="ucl"        onclick="setLeague('ucl')">🌍 UCL</button>
+      <button class="pill-btn pill-league"        data-league="bundesliga" onclick="setLeague('bundesliga')">🇩🇪 Bundesliga</button>
+      <button class="pill-btn pill-league"        data-league="seriea"     onclick="setLeague('seriea')">🇮🇹 Serie A</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ MAIN ═══════════════════════════════════ -->
+<main style="max-width:896px;margin:0 auto;padding:16px 16px 96px">
+
+  <!-- ── SCORES ─────────────────────────────────────────────────────────── -->
+  <div id="view-scores">
+
+    <!-- Controls row -->
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+
+      <!-- Status pills -->
+      <div style="display:flex;align-items:center;gap:6px">
+        <button class="pill-btn pill-status active" data-status="all"      onclick="setStatus('all')">Tümü</button>
+        <button class="pill-btn pill-status"        data-status="live"     onclick="setStatus('live')">
+          <span class="live-dot" style="width:6px;height:6px;background:#f87171;border-radius:50%;display:inline-block"></span>
+          Canlı
+        </button>
+        <button class="pill-btn pill-status"        data-status="finished" onclick="setStatus('finished')">Bitti</button>
+        <button class="pill-btn pill-status"        data-status="upcoming" onclick="setStatus('upcoming')">Yakında</button>
+      </div>
+
+      <!-- Mobile search -->
+      <div class="search-wrap" style="flex:1;max-width:200px">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/>
+        </svg>
+        <input class="search-input js-search" type="text" placeholder="Ara…" style="width:100%">
+      </div>
+    </div>
+
+    <!-- Date tabs -->
+    <div class="glass" style="margin-bottom:16px;border-radius:14px;overflow:hidden">
+      <div id="date-tabs" style="display:flex;overflow-x:auto;border-bottom:1px solid rgba(255,255,255,0.06)"></div>
+    </div>
+
+    <!-- Match list -->
+    <div id="matches-container"></div>
+
+  </div>
+
+  <!-- ── STANDINGS ─────────────────────────────────────────────────────── -->
+  <div id="view-standings" class="hidden">
+    <div id="standings-container"></div>
+  </div>
+
+  <!-- ── FIXTURES ──────────────────────────────────────────────────────── -->
+  <div id="view-fixtures" class="hidden">
+    <div id="fixtures-container"></div>
+  </div>
+
+  <!-- ── STATS ─────────────────────────────────────────────────────────── -->
+  <div id="view-stats" class="hidden">
+    <div id="stats-container"></div>
+  </div>
+
+</main>
+
+<!-- ═══════════════════════════ MATCH MODAL ════════════════════════════════ -->
+<div id="modal-backdrop"
+     class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+     onclick="if(event.target===this)closeModal()">
+
+  <div id="modal-content"
+       style="width:100%;max-width:520px;max-height:90vh;display:flex;flex-direction:column;
+              overflow:hidden;border-radius:20px">
+
+    <!-- Header -->
+    <div style="padding:20px 24px 16px;border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0;position:relative">
+
+      <!-- Close -->
+      <button onclick="closeModal()"
+              style="position:absolute;top:16px;right:16px;width:30px;height:30px;
+                     background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);
+                     border-radius:8px;display:flex;align-items:center;justify-content:center;
+                     cursor:pointer;transition:background .15s">
+        <svg width="14" height="14" fill="none" stroke="rgba(255,255,255,0.6)" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+
+      <p id="modal-league"
+         style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.35);text-align:center;
+                letter-spacing:.06em;text-transform:uppercase;margin-bottom:16px"></p>
+
+      <!-- Teams row -->
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <!-- Home -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1;min-width:0">
+          <div class="team-logo-lg">
+            <img id="modal-home-logo" src="" alt="">
+          </div>
+          <p id="modal-home-name"
+             style="font-size:13px;font-weight:700;color:#f1f5f9;text-align:center;
+                    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%"></p>
+        </div>
+        <!-- Score -->
+        <div id="modal-score" style="flex-shrink:0"></div>
+        <!-- Away -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px;flex:1;min-width:0">
+          <div class="team-logo-lg">
+            <img id="modal-away-logo" src="" alt="">
+          </div>
+          <p id="modal-away-name"
+             style="font-size:13px;font-weight:700;color:#f1f5f9;text-align:center;
+                    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%"></p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:flex;border-bottom:1px solid rgba(255,255,255,0.07);flex-shrink:0">
+      <button id="tab-btn-events" onclick="showModalTab('events')"
+              class="modal-tab active">Olaylar</button>
+      <button id="tab-btn-stats"  onclick="showModalTab('stats')"
+              class="modal-tab">İstatistikler</button>
+    </div>
+
+    <!-- Body -->
+    <div style="overflow-y:auto;flex:1">
+      <div id="tab-events"></div>
+      <div id="tab-stats"  style="display:none"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════ BOTTOM NAV ══════════════════════════════════ -->
+<nav class="bottom-nav fixed bottom-0 left-0 right-0 z-40 md:hidden">
+  <div style="display:flex;align-items:center;justify-content:space-around;padding:6px 8px 10px">
+
+    <button class="bnav-btn active" data-view="scores" onclick="setView('scores')">
+      <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+      </svg>
+      <span style="font-size:10px;font-weight:600">Skorlar</span>
+    </button>
+
+    <button class="bnav-btn" data-view="standings" onclick="setView('standings')">
+      <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+      </svg>
+      <span style="font-size:10px;font-weight:600">Puan</span>
+    </button>
+
+    <button class="bnav-btn" data-view="fixtures" onclick="setView('fixtures')">
+      <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+      </svg>
+      <span style="font-size:10px;font-weight:600">Fikstür</span>
+    </button>
+
+    <button class="bnav-btn" data-view="stats" onclick="setView('stats')">
+      <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+      </svg>
+      <span style="font-size:10px;font-weight:600">İstatistik</span>
+    </button>
+
+  </div>
+</nav>
+
+<!-- ═══════════════════════════ SCRIPTS ════════════════════════════════════ -->
+<script src="src/data.js"></script>
+<script src="src/app.js"></script>
+
+<!-- Desktop nav flex fix -->
+<script>
+  const dn = document.getElementById('desktop-nav');
+  if (dn) dn.style.display = window.innerWidth >= 768 ? 'flex' : 'none';
+  window.addEventListener('resize', () => {
+    if (dn) dn.style.display = window.innerWidth >= 768 ? 'flex' : 'none';
+  });
+</script>
+
 </body>
 </html>

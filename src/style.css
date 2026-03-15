@@ -1,0 +1,356 @@
+/* GoalPulse — Professional UI */
+
+/* ── Base ─────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  background-color: #0a0f1e;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(22,163,74,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(59,130,246,0.05) 0%, transparent 60%);
+  background-attachment: fixed;
+  min-height: 100vh;
+  color: #f1f5f9;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+#league-filter::-webkit-scrollbar { height: 0; }
+
+/* ── Glass Card ──────────────────────────────────────────────────────── */
+.glass {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+}
+
+/* ── Match Card ──────────────────────────────────────────────────────── */
+.match-card {
+  transition: background 0.18s ease, transform 0.18s ease;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+.match-card:hover {
+  background: rgba(255,255,255,0.05) !important;
+  transform: translateX(2px);
+}
+
+/* Live card accent */
+.match-card-live {
+  background: linear-gradient(90deg, rgba(22,163,74,0.07) 0%, transparent 100%) !important;
+}
+.match-card-live::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, #4ade80, #16a34a);
+  border-radius: 0 2px 2px 0;
+}
+
+/* ── Live Animations ─────────────────────────────────────────────────── */
+.live-dot {
+  animation: liveBlink 1.4s ease-in-out infinite;
+}
+@keyframes liveBlink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.15; }
+}
+
+.live-ring {
+  position: relative;
+  display: inline-flex;
+}
+.live-ring::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(74,222,128,0.5);
+  animation: ringPulse 2s ease-out infinite;
+}
+@keyframes ringPulse {
+  0%   { transform: scale(1);   opacity: 0.8; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+/* ── League Group ────────────────────────────────────────────────────── */
+.league-group {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.07);
+  background: rgba(255,255,255,0.025);
+}
+.league-group-header {
+  transition: background 0.15s ease;
+  cursor: pointer;
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%);
+}
+.league-group-header:hover {
+  background: linear-gradient(90deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%);
+}
+.league-match-row {
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+/* ── Filter Pills ────────────────────────────────────────────────────── */
+.pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.55);
+}
+.pill-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.9);
+}
+.pill-btn.active {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  border-color: rgba(74,222,128,0.3);
+  color: #fff;
+  box-shadow: 0 2px 14px rgba(22,163,74,0.3);
+}
+.pill-btn.active-live {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  border-color: rgba(248,113,113,0.3);
+  color: #fff;
+  box-shadow: 0 2px 14px rgba(220,38,38,0.3);
+}
+
+/* ── Date Tab ────────────────────────────────────────────────────────── */
+.date-tab {
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.35);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+  flex-shrink: 0;
+}
+.date-tab:hover { color: rgba(255,255,255,0.65); }
+.date-tab.active {
+  color: #4ade80;
+  border-bottom-color: #4ade80;
+}
+
+/* ── Nav Tab ─────────────────────────────────────────────────────────── */
+.nav-tab {
+  height: 56px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.4);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+.nav-tab:hover { color: rgba(255,255,255,0.75); }
+.nav-tab.active {
+  color: #4ade80;
+  border-bottom-color: #4ade80;
+}
+
+/* ── Modal ───────────────────────────────────────────────────────────── */
+#modal-backdrop {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background: rgba(0,0,0,0.8);
+}
+#modal-content {
+  background: #0f172a;
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 40px 100px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05);
+  animation: modalIn 0.25s cubic-bezier(0.34,1.4,0.64,1);
+}
+@media (max-width: 640px) {
+  #modal-content {
+    border-radius: 24px 24px 0 0;
+    animation: modalUp 0.3s cubic-bezier(0.4,0,0.2,1);
+  }
+}
+@keyframes modalIn {
+  from { transform: scale(0.9) translateY(12px); opacity: 0; }
+  to   { transform: scale(1)   translateY(0);    opacity: 1; }
+}
+@keyframes modalUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+/* ── Stats Bar ───────────────────────────────────────────────────────── */
+.stat-bar-track {
+  height: 5px;
+  border-radius: 99px;
+  background: rgba(255,255,255,0.07);
+  overflow: hidden;
+  display: flex;
+}
+.stat-bar-home {
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+  transition: width 0.7s cubic-bezier(0.4,0,0.2,1);
+}
+.stat-bar-away {
+  background: linear-gradient(270deg, #f87171, #ef4444);
+  margin-left: auto;
+  transition: width 0.7s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ── Form Badge ──────────────────────────────────────────────────────── */
+.form-badge {
+  width: 20px; height: 20px;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+.form-W { background: rgba(22,163,74,0.2);  color: #4ade80; border: 1px solid rgba(74,222,128,0.2); }
+.form-D { background: rgba(234,179,8,0.15); color: #facc15; border: 1px solid rgba(250,204,21,0.2); }
+.form-L { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(248,113,113,0.2); }
+
+/* ── Standings ───────────────────────────────────────────────────────── */
+.pos-dot {
+  width: 3px;
+  align-self: stretch;
+  border-radius: 99px;
+  flex-shrink: 0;
+}
+.pos-ucl    { background: #3b82f6; }
+.pos-europa { background: #f97316; }
+.pos-conf   { background: #a855f7; }
+.pos-rel    { background: #ef4444; }
+
+/* ── Bottom Nav ──────────────────────────────────────────────────────── */
+.bottom-nav {
+  background: rgba(8,12,24,0.95);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+.bnav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 0;
+  flex: 1;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  color: rgba(255,255,255,0.3);
+  border-radius: 10px;
+}
+.bnav-btn.active { color: #4ade80; }
+.bnav-btn.active svg { filter: drop-shadow(0 0 5px rgba(74,222,128,0.5)); }
+.bnav-btn:hover:not(.active) { color: rgba(255,255,255,0.6); }
+
+/* ── Search Input ────────────────────────────────────────────────────── */
+.search-wrap { position: relative; }
+.search-wrap svg {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px; height: 14px;
+  color: rgba(255,255,255,0.3);
+  pointer-events: none;
+}
+.search-input {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.09);
+  color: #f1f5f9;
+  border-radius: 10px;
+  padding: 7px 12px 7px 32px;
+  font-size: 13px;
+  outline: none;
+  transition: all 0.2s ease;
+  width: 175px;
+}
+.search-input::placeholder { color: rgba(255,255,255,0.28); }
+.search-input:focus {
+  background: rgba(255,255,255,0.09);
+  border-color: rgba(74,222,128,0.35);
+  box-shadow: 0 0 0 3px rgba(74,222,128,0.08);
+  width: 210px;
+}
+
+/* ── Team Logo ───────────────────────────────────────────────────────── */
+.team-logo {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.08);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.team-logo img { width: 20px; height: 20px; object-fit: contain; }
+.team-logo-lg {
+  width: 58px; height: 58px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.team-logo-lg img { width: 40px; height: 40px; object-fit: contain; }
+
+/* ── Live Badge ──────────────────────────────────────────────────────── */
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(22,163,74,0.12);
+  border: 1px solid rgba(74,222,128,0.2);
+  color: #4ade80;
+  padding: 2px 9px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+/* ── Skeleton ────────────────────────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0.04) 25%,
+    rgba(255,255,255,0.08) 50%,
+    rgba(255,255,255,0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s infinite;
+  border-radius: 8px;
+}
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Score text ──────────────────────────────────────────────────────── */
+.score-num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
