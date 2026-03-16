@@ -1,4 +1,4 @@
-const APP_VERSION = '1.0.0-dummy';
+const APP_VERSION = '1.1.0';
 
 const LEAGUES = {
   superlig:   { id: 'superlig',   name: 'Süper Lig',          country: 'Türkiye',  apiId: 203, flag: '🇹🇷', logo: 'https://upload.wikimedia.org/wikipedia/tr/thumb/8/85/S%C3%BCper_Lig_logo.svg/200px-S%C3%BCper_Lig_logo.svg.png' },
@@ -42,7 +42,7 @@ const TEAMS = {
   asroma:       { id: 'asroma',       name: 'AS Roma',          shortName: 'ROM', color: '#9B1316', logo: 'https://upload.wikimedia.org/wikipedia/en/thumb/f/f7/AS_Roma_logo_%282017%29.svg/200px-AS_Roma_logo_%282017%29.svg.png' },
 };
 
-const MATCHES = [
+let MATCHES = [
   // --- LIVE ---
   {
     id: 1, league: 'superlig', status: 'live', minute: 67,

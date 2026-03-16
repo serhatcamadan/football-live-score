@@ -11,7 +11,7 @@ let liveMinutes   = {};
 let tickerInterval = null;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   document.documentElement.classList.add('dark');
   const saved = localStorage.getItem('theme');
   if (saved === 'light') document.documentElement.classList.remove('dark');
@@ -20,7 +20,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (m.status === 'live') liveMinutes[m.id] = m.minute;
   });
 
-  renderAll();
+  renderAll();            // dummy data ile anlık render (hızlı ilk yükleme)
+
+  if (typeof initAPI === 'function') {
+    await initAPI();      // API'den gerçek veri çek
+    MATCHES.forEach(m => {
+      if (m.status === 'live') liveMinutes[m.id] = m.minute;
+    });
+    renderAll();          // gerçek veri ile re-render
+    if (typeof startAPIRefresh === 'function') startAPIRefresh();
+  }
+
   startLiveTicker();
   setupSearch();
   updateThemeIcon();
@@ -66,9 +76,14 @@ function fmtDay(offset) {
   return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
 }
 
-function setDate(offset) {
+async function setDate(offset) {
   currentDate = offset;
   renderDateTabs();
+  if (typeof fetchMatchesByDate === 'function') {
+    const d = new Date(); d.setDate(d.getDate() + offset);
+    const fetched = await fetchMatchesByDate(d.toISOString().split('T')[0]).catch(() => null);
+    if (fetched && fetched.length) MATCHES = fetched;
+  }
   renderMatches();
 }
 
@@ -156,8 +171,8 @@ function renderLeagueGroup(lid, matches) {
 }
 
 function renderMatchRow(match, idx) {
-  const home = TEAMS[match.home];
-  const away = TEAMS[match.away];
+  const home = TEAMS[match.home] || { name: match.home, shortName: '?', logo: '' };
+  const away = TEAMS[match.away] || { name: match.away, shortName: '?', logo: '' };
   const isLive = match.status === 'live';
   const isUpcoming = match.status === 'upcoming';
   const minute = liveMinutes[match.id] || match.minute;
@@ -214,11 +229,11 @@ function toggleLeague(lid) {
 }
 
 // ─── Modal ────────────────────────────────────────────────────────────────────
-function openModal(matchId) {
+async function openModal(matchId) {
   const match = MATCHES.find(m => m.id === matchId);
   if (!match) return;
-  const home = TEAMS[match.home];
-  const away = TEAMS[match.away];
+  const home = TEAMS[match.home] || { name: match.home, shortName: '?', logo: '' };
+  const away = TEAMS[match.away] || { name: match.away, shortName: '?', logo: '' };
   const league = LEAGUES[match.league];
   const isLive = match.status === 'live';
   const minute = liveMinutes[match.id] || match.minute;
@@ -263,6 +278,18 @@ function openModal(matchId) {
 
   document.getElementById('modal-backdrop').classList.remove('hidden');
   document.body.style.overflow = 'hidden';
+
+  // Modal açıkken API'den güncel stats + events çek
+  if (match.status !== 'upcoming' && typeof fetchMatchStats === 'function') {
+    const [statsRes, eventsRes] = await Promise.allSettled([
+      fetchMatchStats(match.id),
+      fetchMatchEvents(match.id),
+    ]);
+    if (statsRes.status  === 'fulfilled') match.stats  = statsRes.value;
+    if (eventsRes.status === 'fulfilled') match.events = eventsRes.value;
+    renderModalEvents(match, home, away);
+    renderModalStats(match);
+  }
 }
 
 function closeModal() {
@@ -525,6 +552,8 @@ function renderStats() {
 function setView(view) {
   currentView = view;
   renderAll();
+  if (view === 'standings' && typeof loadStandingsIfNeeded === 'function') loadStandingsIfNeeded();
+  if (view === 'stats'     && typeof loadScorersIfNeeded    === 'function') loadScorersIfNeeded();
 }
 
 function updateNavActive() {
