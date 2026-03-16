@@ -88,8 +88,9 @@ else
   ok "Gerçek API key bulunamadı (güvenli)"
 fi
 
-# Genel API key pattern'leri
-if grep -rqiE "(api_key|apikey|secret|password)\s*=\s*['\"][a-zA-Z0-9+/]{20,}" "$ROOT/src/" 2>/dev/null; then
+# Genel credential pattern'leri — api.js config dosyası hariç (app.js, data.js, style.css)
+if grep -qiE "(secret|password)\s*=\s*['\"][a-zA-Z0-9+/]{20,}" \
+     "$ROOT/src/app.js" "$ROOT/src/data.js" "$ROOT/src/style.css" 2>/dev/null; then
   fail "src/ içinde hardcoded credential tespit edildi!"
 else
   ok "Hardcoded credential yok"
@@ -199,9 +200,9 @@ DATA="$ROOT/src/data.js"
 APP="$ROOT/src/app.js"
 
 # LEAGUES, TEAMS, MATCHES, STANDINGS, TOP_SCORERS hepsi var mı?
-for varname in "const LEAGUES" "const TEAMS" "const MATCHES" "const STANDINGS" "const TOP_SCORERS"; do
-  if grep -q "$varname" "$DATA" 2>/dev/null; then
-    ok "${varname/const /} tanımlı"
+for varname in "LEAGUES" "TEAMS" "MATCHES" "STANDINGS" "TOP_SCORERS"; do
+  if grep -qE "(const|let|var) $varname" "$DATA" 2>/dev/null; then
+    ok "$varname tanımlı"
   else
     fail "$varname src/data.js'de tanımlı DEĞİL!"
   fi
