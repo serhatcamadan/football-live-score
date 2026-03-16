@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════════════════════
+# GoalPulse — Git Pre-Push Hook
+# git push yapılmadan önce tam doğrulama çalışır.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+ROOT="$(git rev-parse --show-toplevel)"
+
+echo ""
+echo "🚀 GoalPulse pre-push kontrolleri başlıyor..."
+echo "   Remote: $1  |  URL: $2"
+echo ""
+
+# ── 1. Main/master'a direkt push uyarısı ─────────────────────────────────────
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [[ "$CURRENT_BRANCH" == "main" || "$CURRENT_BRANCH" == "master" ]]; then
+  echo "⚠️  Main branch'e direkt push yapıyorsun."
+  echo "   Devam etmek için ENTER'a bas, iptal için Ctrl+C..."
+  # Non-interactive (CI) ortamında otomatik geç
+  if [[ -t 0 ]]; then
+    read -r
+  fi
+fi
+
+# ── 2. Tam proje doğrulaması ─────────────────────────────────────────────────
+echo "📋 Tam proje doğrulaması çalıştırılıyor..."
+echo ""
+if ! bash "$ROOT/hooks/validate.sh"; then
+  echo ""
+  echo "❌ Proje doğrulaması BAŞARISIZ. Push iptal edildi."
+  echo "   Hataları düzelt ve tekrar dene."
+  exit 1
+fi
+
+# ── 3. Tüm testleri (varsa) çalıştır ─────────────────────────────────────────
+if [[ -f "$ROOT/package.json" ]]; then
+  HAS_TEST=$(node -e "const p=require('$ROOT/package.json'); console.log(p.scripts?.test||'')" 2>/dev/null || echo "")
+  if [[ -n "$HAS_TEST" && "$HAS_TEST" != "echo" && "$HAS_TEST" != *"no test"* ]]; then
+    echo "🧪 Test suite çalıştırılıyor..."
+    if ! npm test --prefix "$ROOT" 2>/dev/null; then
+      echo "❌ Testler BAŞARISIZ. Push iptal edildi."
+      exit 1
+    fi
+    echo "✅ Testler geçti"
+  fi
+fi
+
+# ── 4. Build kontrolü (varsa dist/output.css güncel mi?) ─────────────────────
+if [[ -f "$ROOT/src/input.css" && -f "$ROOT/dist/output.css" ]]; then
+  INPUT_TIME=$(stat -f %m "$ROOT/src/input.css" 2>/dev/null || stat -c %Y "$ROOT/src/input.css" 2>/dev/null || echo 0)
+  OUTPUT_TIME=$(stat -f %m "$ROOT/dist/output.css" 2>/dev/null || stat -c %Y "$ROOT/dist/output.css" 2>/dev/null || echo 0)
+  if [[ "$INPUT_TIME" -gt "$OUTPUT_TIME" ]]; then
+    echo "⚠️  src/input.css dist/output.css'ten daha yeni. 'npm run build' çalıştırmayı düşün."
+  else
+    echo "✅ CSS build güncel"
+  fi
+fi
+
+# ── 5. CLAUDE.md varlık kontrolü ─────────────────────────────────────────────
+if [[ ! -f "$ROOT/CLAUDE.md" ]]; then
+  echo "❌ CLAUDE.md silinmiş! Bu dosya projenin talimat belgesidir."
+  exit 1
+fi
+echo "✅ CLAUDE.md mevcut"
+
+# ── 6. package.json version kontrolü ─────────────────────────────────────────
+if command -v node &>/dev/null && [[ -f "$ROOT/package.json" ]]; then
+  PKG_VERSION=$(node -e "console.log(require('$ROOT/package.json').version)" 2>/dev/null || echo "")
+  if [[ -z "$PKG_VERSION" ]]; then
+    echo "⚠️  package.json'da version alanı yok"
+  else
+    echo "✅ package.json versiyon: $PKG_VERSION"
+  fi
+fi
+
+echo ""
+echo "✅ Tüm pre-push kontroller geçti. Push devam ediyor..."
+echo ""
+exit 0

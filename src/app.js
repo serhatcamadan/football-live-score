@@ -12,7 +12,6 @@ let tickerInterval = null;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  // Dark mode default
   document.documentElement.classList.add('dark');
   const saved = localStorage.getItem('theme');
   if (saved === 'light') document.documentElement.classList.remove('dark');
@@ -106,13 +105,12 @@ function renderMatches() {
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.2"
                 d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
-        <p style="font-size:16px;font-weight:600;color:rgba(255,255,255,0.3)">Maç bulunamadı</p>
-        <p style="font-size:13px;margin-top:6px;color:rgba(255,255,255,0.18)">Filtreleri değiştirmeyi deneyin</p>
+        <p style="font-size:16px;font-weight:600">Maç bulunamadı</p>
+        <p style="font-size:13px;margin-top:6px;opacity:.7">Filtreleri değiştirmeyi deneyin</p>
       </div>`;
     return;
   }
 
-  // Group by league, live first
   const grouped = {};
   matches.forEach(m => { (grouped[m.league] = grouped[m.league] || []).push(m); });
 
@@ -137,8 +135,8 @@ function renderLeagueGroup(lid, matches) {
         <div style="display:flex;align-items:center;gap:12px;">
           <span style="font-size:20px;line-height:1">${league.flag}</span>
           <div>
-            <p style="font-size:13px;font-weight:700;color:#f1f5f9">${league.name}</p>
-            <p style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:1px">${league.country}</p>
+            <p style="font-size:13px;font-weight:700;color:var(--text-1)">${league.name}</p>
+            <p style="font-size:11px;color:var(--text-5);margin-top:1px">${league.country}</p>
           </div>
           ${liveCount ? `
             <span class="live-badge">
@@ -146,7 +144,7 @@ function renderLeagueGroup(lid, matches) {
               ${liveCount} CANLI
             </span>` : ''}
         </div>
-        <svg style="width:16px;height:16px;color:rgba(255,255,255,0.3);transition:transform .2s;${isExpanded ? 'transform:rotate(180deg)' : ''}"
+        <svg style="width:16px;height:16px;color:var(--text-6);transition:transform .2s;${isExpanded ? 'transform:rotate(180deg)' : ''}"
              fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
         </svg>
@@ -166,45 +164,42 @@ function renderMatchRow(match, idx) {
 
   const centerBlock = isUpcoming
     ? `<div style="text-align:center;min-width:70px">
-         <p style="font-size:17px;font-weight:700;color:rgba(255,255,255,0.7);letter-spacing:-.01em">${match.kickoff}</p>
-         <p style="font-size:10px;color:rgba(255,255,255,0.25);margin-top:2px">BAŞLAMADI</p>
+         <p style="font-size:17px;font-weight:700;color:var(--text-2);letter-spacing:-.01em">${match.kickoff}</p>
+         <p style="font-size:10px;color:var(--text-7);margin-top:2px">BAŞLAMADI</p>
        </div>`
     : `<div style="text-align:center;min-width:80px">
-         <p class="score-num" style="font-size:26px;font-weight:900;color:#f8fafc">
-           ${match.score.home}<span style="color:rgba(255,255,255,0.2);font-weight:300;margin:0 4px">:</span>${match.score.away}
+         <p class="score-num" style="font-size:26px;font-weight:900;color:var(--score-color)">
+           ${match.score.home}<span style="color:var(--score-sep);font-weight:300;margin:0 4px">:</span>${match.score.away}
          </p>
          ${isLive
            ? `<div style="display:flex;align-items:center;justify-content:center;gap:5px;margin-top:2px">
                 <span class="live-dot" style="width:5px;height:5px;background:#4ade80;border-radius:50%;display:inline-block;flex-shrink:0"></span>
                 <span id="minute-${match.id}" style="font-size:11px;font-weight:700;color:#4ade80">${minute}'</span>
               </div>`
-           : `<p style="font-size:10px;color:rgba(255,255,255,0.25);margin-top:2px">BİTTİ</p>`}
+           : `<p style="font-size:10px;color:var(--text-7);margin-top:2px">BİTTİ</p>`}
        </div>`;
 
   return `
     <div class="match-card league-match-row ${isLive ? 'match-card-live' : ''} px-4 py-3.5"
          onclick="openModal(${match.id})">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-        <!-- Home -->
         <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
           <div class="team-logo">
             <img src="${home.logo}" alt="${home.shortName}"
-                 onerror="this.parentElement.innerHTML='<span style=font-size:11px;font-weight:800;color:rgba(255,255,255,0.6)>${home.shortName}</span>'">
+                 onerror="this.parentElement.innerHTML='<span style=font-size:11px;font-weight:800;color:var(--text-2)>${home.shortName}</span>'">
           </div>
           <span style="font-size:13px;font-weight:${isLive && match.score.home > match.score.away ? '700' : '500'};
-                       color:${isLive && match.score.home > match.score.away ? '#f8fafc' : 'rgba(255,255,255,0.75)'};
+                       color:${isLive && match.score.home > match.score.away ? 'var(--score-color)' : 'var(--text-2)'};
                        white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${home.name}</span>
         </div>
-        <!-- Center -->
         ${centerBlock}
-        <!-- Away -->
         <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;justify-content:flex-end">
           <span style="font-size:13px;font-weight:${isLive && match.score.away > match.score.home ? '700' : '500'};
-                       color:${isLive && match.score.away > match.score.home ? '#f8fafc' : 'rgba(255,255,255,0.75)'};
+                       color:${isLive && match.score.away > match.score.home ? 'var(--score-color)' : 'var(--text-2)'};
                        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right">${away.name}</span>
           <div class="team-logo">
             <img src="${away.logo}" alt="${away.shortName}"
-                 onerror="this.parentElement.innerHTML='<span style=font-size:11px;font-weight:800;color:rgba(255,255,255,0.6)>${away.shortName}</span>'">
+                 onerror="this.parentElement.innerHTML='<span style=font-size:11px;font-weight:800;color:var(--text-2)>${away.shortName}</span>'">
           </div>
         </div>
       </div>
@@ -242,15 +237,15 @@ function openModal(matchId) {
   if (match.status === 'upcoming') {
     document.getElementById('modal-score').innerHTML = `
       <div style="text-align:center">
-        <p style="font-size:36px;font-weight:800;color:rgba(255,255,255,0.6)">${match.kickoff}</p>
-        <p style="font-size:12px;color:rgba(255,255,255,0.3);margin-top:4px">BAŞLAMADI</p>
+        <p style="font-size:36px;font-weight:800;color:var(--text-2)">${match.kickoff}</p>
+        <p style="font-size:12px;color:var(--text-6);margin-top:4px">BAŞLAMADI</p>
       </div>`;
   } else {
     document.getElementById('modal-score').innerHTML = `
       <div style="text-align:center">
-        <p class="score-num" style="font-size:44px;font-weight:900;color:#f8fafc">
+        <p class="score-num" style="font-size:44px;font-weight:900;color:var(--score-color)">
           ${match.score.home}
-          <span style="font-size:32px;color:rgba(255,255,255,0.15);font-weight:300;margin:0 8px">:</span>
+          <span style="font-size:32px;color:var(--score-sep);font-weight:300;margin:0 8px">:</span>
           ${match.score.away}
         </p>
         ${isLive
@@ -258,7 +253,7 @@ function openModal(matchId) {
                <span class="live-ring" style="width:8px;height:8px;background:#4ade80;border-radius:50%;display:inline-block;flex-shrink:0"></span>
                <span style="font-size:12px;font-weight:700;color:#4ade80;letter-spacing:.05em">CANLI · ${minute}'</span>
              </div>`
-          : `<p style="font-size:12px;color:rgba(255,255,255,0.3);margin-top:4px">MAÇ BİTTİ</p>`}
+          : `<p style="font-size:12px;color:var(--text-6);margin-top:4px">MAÇ BİTTİ</p>`}
       </div>`;
   }
 
@@ -287,7 +282,7 @@ function renderModalEvents(match, home, away) {
   const el = document.getElementById('tab-events');
   if (!el) return;
   if (!match.events?.length) {
-    el.innerHTML = `<div style="text-align:center;padding:48px 0;color:rgba(255,255,255,0.25);font-size:14px">Henüz olay yok</div>`;
+    el.innerHTML = `<div style="text-align:center;padding:48px 0;color:var(--text-7);font-size:14px">Henüz olay yok</div>`;
     return;
   }
   const icons = {
@@ -296,7 +291,7 @@ function renderModalEvents(match, home, away) {
   };
   const colors = {
     goal: '#4ade80', yellowCard: '#facc15', redCard: '#f87171',
-    ownGoal: '#fb923c', penalty: '#4ade80', sub: 'rgba(255,255,255,0.4)',
+    ownGoal: '#fb923c', penalty: '#4ade80', sub: 'var(--text-4)',
   };
 
   const sorted = [...match.events].sort((a,b) => a.minute - b.minute);
@@ -304,16 +299,16 @@ function renderModalEvents(match, home, away) {
     sorted.map(ev => {
       const isHome = ev.team === match.home;
       const icon = icons[ev.type] || '•';
-      const col  = colors[ev.type] || 'rgba(255,255,255,0.5)';
+      const col  = colors[ev.type] || 'var(--text-8)';
       return `
         <div style="display:flex;align-items:center;gap:10px;padding:10px 20px;
                     flex-direction:${isHome ? 'row' : 'row-reverse'}">
-          <span style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.3);
+          <span style="font-size:10px;font-weight:700;color:var(--text-6);
                        width:28px;text-align:center;flex-shrink:0">${ev.minute}'</span>
           <span style="font-size:18px;flex-shrink:0">${icon}</span>
           <div style="flex:1;min-width:0;${isHome ? '' : 'text-align:right'}">
-            <p style="font-size:13px;font-weight:600;color:#f1f5f9">${ev.player}</p>
-            ${ev.assist ? `<p style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:1px">Asist: ${ev.assist}</p>` : ''}
+            <p style="font-size:13px;font-weight:600;color:var(--text-1)">${ev.player}</p>
+            ${ev.assist ? `<p style="font-size:11px;color:var(--text-5);margin-top:1px">Asist: ${ev.assist}</p>` : ''}
           </div>
         </div>`;
     }).join('') + `</div>`;
@@ -323,7 +318,7 @@ function renderModalStats(match) {
   const el = document.getElementById('tab-stats');
   if (!el) return;
   if (!match.stats || !Object.keys(match.stats).length) {
-    el.innerHTML = `<div style="text-align:center;padding:48px 0;color:rgba(255,255,255,0.25);font-size:14px">İstatistik yok</div>`;
+    el.innerHTML = `<div style="text-align:center;padding:48px 0;color:var(--text-7);font-size:14px">İstatistik yok</div>`;
     return;
   }
   const rows = [
@@ -347,9 +342,9 @@ function renderModalStats(match) {
         return `
           <div>
             <div style="display:flex;justify-content:space-between;margin-bottom:7px">
-              <span style="font-size:13px;font-weight:700;color:#f1f5f9">${h}${row.pct?'%':''}</span>
-              <span style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:.04em">${row.label}</span>
-              <span style="font-size:13px;font-weight:700;color:#f1f5f9">${a}${row.pct?'%':''}</span>
+              <span style="font-size:13px;font-weight:700;color:var(--text-1)">${h}${row.pct?'%':''}</span>
+              <span style="font-size:11px;font-weight:600;color:var(--text-5);text-transform:uppercase;letter-spacing:.04em">${row.label}</span>
+              <span style="font-size:13px;font-weight:700;color:var(--text-1)">${a}${row.pct?'%':''}</span>
             </div>
             <div class="stat-bar-track">
               <div class="stat-bar-home" style="width:${hPct}%"></div>
@@ -379,13 +374,13 @@ function renderStandings() {
       <div class="league-group mb-5">
         <div class="league-group-header flex items-center gap-3 px-4 py-3">
           <span style="font-size:20px">${league.flag}</span>
-          <h3 style="font-size:13px;font-weight:700;color:#f1f5f9">${league.name}</h3>
-          <span style="font-size:11px;color:rgba(255,255,255,0.3);margin-left:auto">${league.country}</span>
+          <h3 style="font-size:13px;font-weight:700;color:var(--text-1)">${league.name}</h3>
+          <span style="font-size:11px;color:var(--text-6);margin-left:auto">${league.country}</span>
         </div>
         <div style="overflow-x:auto">
           <table style="width:100%;border-collapse:collapse;font-size:12px">
             <thead>
-              <tr style="color:rgba(255,255,255,0.3);font-size:10px;text-transform:uppercase;letter-spacing:.04em">
+              <tr style="color:var(--text-6);font-size:10px;text-transform:uppercase;letter-spacing:.04em">
                 <th style="padding:8px 16px;text-align:left;width:32px">#</th>
                 <th style="padding:8px 16px;text-align:left">Takım</th>
                 <th style="padding:8px 8px;text-align:center">O</th>
@@ -393,7 +388,7 @@ function renderStandings() {
                 <th style="padding:8px 8px;text-align:center">B</th>
                 <th style="padding:8px 8px;text-align:center">M</th>
                 <th style="padding:8px 8px;text-align:center">AG</th>
-                <th style="padding:8px 8px;text-align:center;font-weight:700;color:rgba(255,255,255,0.5)">P</th>
+                <th style="padding:8px 8px;text-align:center;font-weight:700;color:var(--text-8)">P</th>
                 <th style="padding:8px 12px 8px 4px;text-align:center">Form</th>
               </tr>
             </thead>
@@ -402,13 +397,13 @@ function renderStandings() {
                 const team = TEAMS[row.team];
                 const dotCls = i === 0 ? 'pos-ucl' : i <= 1 ? 'pos-ucl' : i >= rows.length-1 ? 'pos-rel' : '';
                 return `
-                  <tr style="border-top:1px solid rgba(255,255,255,0.05);transition:background .15s"
-                      onmouseover="this.style.background='rgba(255,255,255,0.04)'"
+                  <tr style="border-top:1px solid var(--border-3);transition:background .15s"
+                      onmouseover="this.style.background='var(--bg-row-hover)'"
                       onmouseout="this.style.background=''">
                     <td style="padding:10px 16px;text-align:center">
                       <div style="display:flex;align-items:center;gap:6px">
                         <span class="pos-dot ${dotCls}"></span>
-                        <span style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.4)">${row.pos}</span>
+                        <span style="font-size:12px;font-weight:700;color:var(--text-4)">${row.pos}</span>
                       </div>
                     </td>
                     <td style="padding:10px 16px">
@@ -417,17 +412,17 @@ function renderStandings() {
                           <img src="${team?.logo||''}" alt="" style="width:16px;height:16px;object-fit:contain"
                                onerror="this.style.display='none'">
                         </div>
-                        <span style="font-weight:500;color:#e2e8f0">${team?.name||row.team}</span>
+                        <span style="font-weight:500;color:var(--text-team)">${team?.name||row.team}</span>
                       </div>
                     </td>
-                    <td style="padding:10px 8px;text-align:center;color:rgba(255,255,255,0.5)">${row.played}</td>
-                    <td style="padding:10px 8px;text-align:center;color:rgba(255,255,255,0.5)">${row.won}</td>
-                    <td style="padding:10px 8px;text-align:center;color:rgba(255,255,255,0.5)">${row.drawn}</td>
-                    <td style="padding:10px 8px;text-align:center;color:rgba(255,255,255,0.5)">${row.lost}</td>
-                    <td style="padding:10px 8px;text-align:center;color:rgba(255,255,255,0.4);font-size:11px">
+                    <td style="padding:10px 8px;text-align:center;color:var(--text-8)">${row.played}</td>
+                    <td style="padding:10px 8px;text-align:center;color:var(--text-8)">${row.won}</td>
+                    <td style="padding:10px 8px;text-align:center;color:var(--text-8)">${row.drawn}</td>
+                    <td style="padding:10px 8px;text-align:center;color:var(--text-8)">${row.lost}</td>
+                    <td style="padding:10px 8px;text-align:center;color:var(--text-4);font-size:11px">
                       ${row.gd > 0 ? '+' : ''}${row.gd}
                     </td>
-                    <td style="padding:10px 8px;text-align:center;font-size:14px;font-weight:800;color:#f8fafc">${row.pts}</td>
+                    <td style="padding:10px 8px;text-align:center;font-size:14px;font-weight:800;color:var(--score-color)">${row.pts}</td>
                     <td style="padding:10px 12px 10px 4px">
                       <div style="display:flex;gap:2px;justify-content:center">
                         ${row.form.map(f => `<span class="form-badge form-${f}">${f}</span>`).join('')}
@@ -460,7 +455,7 @@ function renderFixtures() {
     <div class="league-group mb-4">
       <div class="league-group-header flex items-center gap-3 px-4 py-3">
         <span style="font-size:20px">${LEAGUES[lid].flag}</span>
-        <h3 style="font-size:13px;font-weight:700;color:#f1f5f9">${LEAGUES[lid].name}</h3>
+        <h3 style="font-size:13px;font-weight:700;color:var(--text-1)">${LEAGUES[lid].name}</h3>
       </div>
       ${grouped[lid].map((m,i) => renderMatchRow(m,i)).join('')}
     </div>`).join('');
@@ -480,13 +475,13 @@ function renderStats() {
       <div class="league-group mb-5">
         <div class="league-group-header flex items-center gap-3 px-4 py-3">
           <span style="font-size:20px">${league.flag}</span>
-          <h3 style="font-size:13px;font-weight:700;color:#f1f5f9">${league.name}</h3>
-          <span style="font-size:11px;color:rgba(255,255,255,0.3);margin-left:auto">Gol Krallığı</span>
+          <h3 style="font-size:13px;font-weight:700;color:var(--text-1)">${league.name}</h3>
+          <span style="font-size:11px;color:var(--text-6);margin-left:auto">Gol Krallığı</span>
         </div>
         <div style="overflow-x:auto">
           <table style="width:100%;border-collapse:collapse;font-size:12px">
             <thead>
-              <tr style="color:rgba(255,255,255,0.3);font-size:10px;text-transform:uppercase;letter-spacing:.04em">
+              <tr style="color:var(--text-6);font-size:10px;text-transform:uppercase;letter-spacing:.04em">
                 <th style="padding:8px 16px;text-align:left;width:32px">#</th>
                 <th style="padding:8px 16px;text-align:left">Oyuncu</th>
                 <th style="padding:8px 16px;text-align:left">Takım</th>
@@ -498,25 +493,25 @@ function renderStats() {
             <tbody>
               ${scorers.map(s => {
                 const team = TEAMS[s.team];
-                const rankColor = s.rank === 1 ? '#fbbf24' : s.rank === 2 ? '#94a3b8' : s.rank === 3 ? '#b45309' : 'rgba(255,255,255,0.3)';
+                const rankColor = s.rank === 1 ? '#fbbf24' : s.rank === 2 ? '#94a3b8' : s.rank === 3 ? '#b45309' : 'var(--text-6)';
                 return `
-                  <tr style="border-top:1px solid rgba(255,255,255,0.05)"
-                      onmouseover="this.style.background='rgba(255,255,255,0.04)'"
+                  <tr style="border-top:1px solid var(--border-3)"
+                      onmouseover="this.style.background='var(--bg-row-hover)'"
                       onmouseout="this.style.background=''">
                     <td style="padding:12px 16px;text-align:center;font-size:13px;font-weight:800;color:${rankColor}">${s.rank}</td>
-                    <td style="padding:12px 16px;font-weight:600;color:#e2e8f0">${s.player}</td>
+                    <td style="padding:12px 16px;font-weight:600;color:var(--text-team)">${s.player}</td>
                     <td style="padding:12px 16px">
                       <div style="display:flex;align-items:center;gap:7px">
                         <div class="team-logo" style="width:22px;height:22px">
                           <img src="${team?.logo||''}" alt="" style="width:14px;height:14px;object-fit:contain"
                                onerror="this.style.display='none'">
                         </div>
-                        <span style="color:rgba(255,255,255,0.45)">${team?.name||s.team}</span>
+                        <span style="color:var(--text-3)">${team?.name||s.team}</span>
                       </div>
                     </td>
-                    <td style="padding:12px;text-align:center;color:rgba(255,255,255,0.4)">${s.apps}</td>
+                    <td style="padding:12px;text-align:center;color:var(--text-4)">${s.apps}</td>
                     <td style="padding:12px;text-align:center;font-size:16px;font-weight:900;color:#4ade80">${s.goals}</td>
-                    <td style="padding:12px;text-align:center;color:rgba(255,255,255,0.4)">${s.assists}</td>
+                    <td style="padding:12px;text-align:center;color:var(--text-4)">${s.assists}</td>
                   </tr>`;
               }).join('')}
             </tbody>
@@ -535,12 +530,8 @@ function setView(view) {
 function updateNavActive() {
   document.querySelectorAll('[data-view]').forEach(el => {
     const isActive = el.dataset.view === currentView;
-    if (el.classList.contains('nav-tab')) {
-      el.classList.toggle('active', isActive);
-    }
-    if (el.classList.contains('bnav-btn')) {
-      el.classList.toggle('active', isActive);
-    }
+    if (el.classList.contains('nav-tab')) el.classList.toggle('active', isActive);
+    if (el.classList.contains('bnav-btn')) el.classList.toggle('active', isActive);
   });
 }
 
@@ -548,8 +539,7 @@ function updateNavActive() {
 function setLeague(league) {
   currentLeague = league;
   document.querySelectorAll('.pill-league').forEach(btn => {
-    const a = btn.dataset.league === league;
-    btn.classList.toggle('active', a);
+    btn.classList.toggle('active', btn.dataset.league === league);
   });
   renderView();
 }
@@ -560,11 +550,7 @@ function setStatus(status) {
   document.querySelectorAll('.pill-status').forEach(btn => {
     const a = btn.dataset.status === status;
     btn.classList.toggle('active', a);
-    if (status === 'live' && a) {
-      btn.classList.add('active-live');
-    } else {
-      btn.classList.remove('active-live');
-    }
+    btn.classList.toggle('active-live', status === 'live' && a);
   });
   renderMatches();
 }

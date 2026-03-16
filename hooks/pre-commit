@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════════════════════
+# GoalPulse — Git Pre-Commit Hook
+# Her commit öncesi otomatik çalışır.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+ROOT="$(git rev-parse --show-toplevel)"
+
+echo ""
+echo "🔍 GoalPulse pre-commit kontrolleri çalışıyor..."
+echo ""
+
+# ── 1. Staged JS dosyalarında sentaks kontrolü ────────────────────────────────
+STAGED_JS=$(git diff --cached --name-only --diff-filter=ACM | grep '\.js$' || true)
+if [[ -n "$STAGED_JS" ]]; then
+  if command -v node &>/dev/null; then
+    while IFS= read -r jsfile; do
+      if ! node --check "$ROOT/$jsfile" 2>/dev/null; then
+        echo "❌ Sentaks hatası: $jsfile"
+        node --check "$ROOT/$jsfile"
+        echo ""
+        echo "Commit iptal edildi. Lütfen JS hatalarını düzelt."
+        exit 1
+      fi
+    done <<< "$STAGED_JS"
+    echo "✅ JS sentaks kontrolü geçti"
+  fi
+fi
+
+# ── 2. API key sızdırma kontrolü ─────────────────────────────────────────────
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -v '^hooks/' || true)
+if [[ -n "$STAGED_FILES" ]]; then
+  # RapidAPI key pattern
+  if git diff --cached | grep -qP "\+.*[a-zA-Z0-9]{50,}"; then
+    # Daha spesifik kontrol: API key header'ı
+    if git diff --cached | grep -qiP "\+.*(x-rapidapi-key|api[_-]?key)\s*[:=]\s*['\"]?[a-zA-Z0-9]{30,}"; then
+      echo "❌ Commit'te API key tespit edildi!"
+      echo "   Gerçek API key'leri commit etme. .env kullan."
+      exit 1
+    fi
+  fi
+  echo "✅ API key kontrolü geçti"
+fi
+
+# ── 3. .env dosyası stage'de var mı? ─────────────────────────────────────────
+if git diff --cached --name-only | grep -q '^\.env'; then
+  echo "❌ .env dosyası commit'e eklendi! Bunu yapma."
+  echo "   .gitignore'a ekle: echo '.env' >> .gitignore"
+  exit 1
+fi
+echo "✅ .env kontrolü geçti"
+
+# ── 4. Framework import kontrolü ─────────────────────────────────────────────
+STAGED_JS2=$(git diff --cached --name-only --diff-filter=ACM | grep '\.js$' || true)
+if [[ -n "$STAGED_JS2" ]]; then
+  if git diff --cached -- 'src/*.js' 'index.html' | grep -qiE "^\+.*(from ['\"]react|from ['\"]vue|from ['\"]next|require\(['\"]react)"; then
+    echo "❌ Yasak framework import'u tespit edildi (React/Vue/Next.js yasak!)"
+    exit 1
+  fi
+  echo "✅ Framework yasağı kontrolü geçti"
+fi
+
+# ── 5. Gerekli dosya referansları (index.html bozmadın mı?) ───────────────────
+if git diff --cached --name-only | grep -q 'index\.html'; then
+  # Staged index.html'de src/app.js ve src/data.js var mı?
+  STAGED_HTML=$(git show :index.html 2>/dev/null || cat "$ROOT/index.html")
+  if ! echo "$STAGED_HTML" | grep -q 'src/app.js'; then
+    echo "❌ index.html'de src/app.js referansı kayboldu!"
+    exit 1
+  fi
+  if ! echo "$STAGED_HTML" | grep -q 'src/data.js'; then
+    echo "❌ index.html'de src/data.js referansı kayboldu!"
+    exit 1
+  fi
+  echo "✅ index.html referans kontrolü geçti"
+fi
+
+echo ""
+echo "✅ Pre-commit kontrollerin tümü geçti. Commit oluşturuluyor..."
+echo ""
+exit 0
