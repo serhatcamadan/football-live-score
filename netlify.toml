@@ -19,6 +19,6 @@
 
 # /api/* → netlify function proxy
 [[redirects]]
-  from = "/api"
+  from = "/api/*"
   to = "/.netlify/functions/api-proxy"
   status = 200
