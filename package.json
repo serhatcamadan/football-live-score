@@ -1,10 +1,11 @@
 {
-  "name": "goalpulse",
+  "name": "camogoal",
   "version": "1.0.0-dummy",
   "description": "Canlı futbol skor takip uygulaması",
   "main": "index.js",
   "scripts": {
-    "dev": "live-server --port=3000 --open=index.html --watch=index.html,src",
+    "dev": "netlify dev",
+    "dev:local": "live-server --port=3000 --open=index.html --watch=index.html,src",
     "build": "npx tailwindcss -i ./src/input.css -o ./dist/output.css --minify"
   },
   "keywords": [],

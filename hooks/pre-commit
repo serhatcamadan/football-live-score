@@ -43,7 +43,7 @@ if [[ -n "$STAGED_FILES" ]]; then
 fi
 
 # ── 3. .env dosyası stage'de var mı? ─────────────────────────────────────────
-if git diff --cached --name-only | grep -q '^\.env'; then
+if git diff --cached --name-only | grep -qE '^\.env$'; then
   echo "❌ .env dosyası commit'e eklendi! Bunu yapma."
   echo "   .gitignore'a ekle: echo '.env' >> .gitignore"
   exit 1

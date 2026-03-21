@@ -1,4 +1,4 @@
-# GoalPulse — Proje Kuralları & Uyumluluk Kılavuzu
+# CamoGoal — Proje Kuralları & Uyumluluk Kılavuzu
 
 > Bu dosya `hooks/validate.sh`, `hooks/pre-commit` ve `hooks/pre-push` tarafından
 > otomatik olarak uygulanan kuralları belgeler.

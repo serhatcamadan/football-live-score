@@ -1,17 +1,16 @@
 /* globals MATCHES, TEAMS, STANDINGS, TOP_SCORERS, renderMatches, renderStandings, renderStats */
-/* GoalPulse — api.js
+/* CamoGoal — api.js
  * API-Football (RapidAPI) entegrasyon katmanı.
  * app.js'i değiştirmeden MATCHES, TEAMS, STANDINGS, TOP_SCORERS globallerini günceller.
  * API key yoksa veya hata olursa data.js'deki dummy veri devrede kalır.
  */
 
 // ─── Yapılandırma ─────────────────────────────────────────────────────────────
-const API_KEY = '9537eda8443bad1eb63aaf14e2fd5323';   // dashboard.api-football.com'dan aldığın key
-const BASE_URL = 'https://v3.football.api-sports.io';
-const HEADERS = {
-  'x-apisports-key': API_KEY,
-};
-const SEASON = 2025;  // 2025-26 sezonu (bugün 2026-03-16, aktif sezon 2025)
+// API key bu dosyada YOK — Netlify Function proxy üzerinden güvenli çağrı yapılır.
+// Lokal geliştirme: netlify dev komutunu kullan (APISPORTS_KEY=... netlify dev)
+const IS_LOCAL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const PROXY_URL = IS_LOCAL ? 'http://localhost:8888/api' : '/api';
+let SEASON = 2025;
 
 // ─── Lig Haritası ─────────────────────────────────────────────────────────────
 const LEAGUE_MAP = {
@@ -28,10 +27,13 @@ const API_ID_TO_KEY = Object.fromEntries(
   Object.entries(LEAGUE_MAP).map(([key, val]) => [val.apiId, key])
 );
 
-// ─── Temel Fetch ──────────────────────────────────────────────────────────────
+// ─── Temel Fetch (proxy üzerinden) ────────────────────────────────────────────
 async function apiFetch(endpoint) {
-  if (!API_KEY || API_KEY === 'BURAYA_API_KEY' || API_KEY.length < 20) throw new Error('API key girilmemiş');
-  const res = await fetch(`${BASE_URL}${endpoint}`, { headers: HEADERS });
+  // endpoint'i ve query string'i ayır
+  const [path, qs] = endpoint.split('?');
+  const params = new URLSearchParams(qs || '');
+  params.set('endpoint', path);
+  const res = await fetch(`${PROXY_URL}?${params.toString()}`);
   if (!res.ok) throw new Error(`API ${res.status}: ${endpoint}`);
   return res.json();
 }
@@ -43,6 +45,7 @@ function mapTeam(apiTeam) {
   if (!TEAMS[key]) {
     TEAMS[key] = {
       id: key,
+      apiId: apiTeam.id,
       name: apiTeam.name,
       shortName: apiTeam.name.slice(0, 3).toUpperCase(),
       logo: apiTeam.logo,
@@ -230,17 +233,27 @@ async function fetchMatchEvents(fixtureId) {
   return mapEvents(data.response);
 }
 
-// ─── Fetch: Puan Durumu (Tüm Ligler) — lazy, 1 saat cache ───────────────────
+// ─── Fetch: Puan Durumu — lazy, season parametreli, cache per-season ─────────
 let standingsFetching = false;
-async function fetchStandings() {
-  const cached = cacheGet('gp_standings');
+let scorersFetching   = false;
+
+function setAPISeason(year) {
+  SEASON = year;
+  standingsFetching = false;
+  scorersFetching   = false;
+}
+
+async function fetchStandings(season) {
+  const s = season || SEASON;
+  const cacheKey = `gp_v2_standings_${s}`;
+  const cached = cacheGet(cacheKey);
   if (cached) return cached;
   if (standingsFetching) return null;
   standingsFetching = true;
 
   const entries = Object.entries(LEAGUE_MAP);
   const promises = entries.map(([key, l]) =>
-    apiFetch(`/standings?league=${l.apiId}&season=${SEASON}`)
+    apiFetch(`/standings?league=${l.apiId}&season=${s}`)
       .then(data => ({ key, data }))
       .catch(() => null)
   );
@@ -253,21 +266,24 @@ async function fetchStandings() {
   });
 
   standingsFetching = false;
-  if (Object.keys(standings).length) cacheSet('gp_standings', standings, 60 * 60 * 1000);
+  // Geçmiş sezonlar uzun süre (24s), aktif sezon 1 saat cache
+  const ttl = s === SEASON ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+  if (Object.keys(standings).length) cacheSet(cacheKey, standings, ttl);
   return standings;
 }
 
-// ─── Fetch: Gol Krallığı (Tüm Ligler) — lazy, 1 saat cache ──────────────────
-let scorersFetching = false;
-async function fetchTopScorers() {
-  const cached = cacheGet('gp_topscorers');
+// ─── Fetch: Gol Krallığı — lazy, season parametreli, cache per-season ────────
+async function fetchTopScorers(season) {
+  const s = season || SEASON;
+  const cacheKey = `gp_v2_topscorers_${s}`;
+  const cached = cacheGet(cacheKey);
   if (cached) return cached;
   if (scorersFetching) return null;
   scorersFetching = true;
 
   const entries = Object.entries(LEAGUE_MAP);
   const promises = entries.map(([key, l]) =>
-    apiFetch(`/players/topscorers?league=${l.apiId}&season=${SEASON}`)
+    apiFetch(`/players/topscorers?league=${l.apiId}&season=${s}`)
       .then(data => ({ key, data }))
       .catch(() => null)
   );
@@ -276,11 +292,12 @@ async function fetchTopScorers() {
   results.forEach(r => {
     if (!r) return;
     const list = r.data.response || [];
-    if (list.length) scorers[r.key] = list.map((s, i) => mapScorer(s, i + 1));
+    if (list.length) scorers[r.key] = list.map((s2, i) => mapScorer(s2, i + 1));
   });
 
   scorersFetching = false;
-  if (Object.keys(scorers).length) cacheSet('gp_topscorers', scorers, 60 * 60 * 1000);
+  const ttl = s === SEASON ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+  if (Object.keys(scorers).length) cacheSet(cacheKey, scorers, ttl);
   return scorers;
 }
 
@@ -291,7 +308,7 @@ async function initAPI() {
     const matches = await fetchMatchesByDate(today);
     if (matches && matches.length) {
       MATCHES = matches;
-      console.log(`✅ GoalPulse API: ${MATCHES.length} maç yüklendi`);
+      console.log(`✅ CamoGoal API: ${MATCHES.length} maç yüklendi`);
     } else {
       console.warn('⚠️ API: Bugün için maç bulunamadı, dummy veri aktif');
     }
@@ -300,20 +317,21 @@ async function initAPI() {
   }
 }
 
-// ─── Lazy View Init — standings/scorers sekmeye tıklanınca yükle ──────────────
-async function loadStandingsIfNeeded() {
-  if (typeof fetchStandings !== 'function') return;
-  const data = await fetchStandings().catch(() => null);
+// ─── Lazy View Init — standings/scorers sekmeye tıklanınca veya sezon değişince
+async function loadStandingsIfNeeded(season) {
+  const data = await fetchStandings(season).catch(() => null);
   if (data && Object.keys(data).length) {
+    // Mevcut standings'i temizle, yeni sezonun verisini yaz
+    Object.keys(STANDINGS).forEach(k => delete STANDINGS[k]);
     Object.assign(STANDINGS, data);
     if (typeof renderStandings === 'function') renderStandings();
   }
 }
 
-async function loadScorersIfNeeded() {
-  if (typeof fetchTopScorers !== 'function') return;
-  const data = await fetchTopScorers().catch(() => null);
+async function loadScorersIfNeeded(season) {
+  const data = await fetchTopScorers(season).catch(() => null);
   if (data && Object.keys(data).length) {
+    Object.keys(TOP_SCORERS).forEach(k => delete TOP_SCORERS[k]);
     Object.assign(TOP_SCORERS, data);
     if (typeof renderStats === 'function') renderStats();
   }
@@ -327,10 +345,33 @@ function startAPIRefresh() {
 
     live.forEach(m => {
       const idx = MATCHES.findIndex(x => x.id === m.id);
-      if (idx >= 0) MATCHES[idx] = { ...MATCHES[idx], ...m };
-      else MATCHES.push(m);
+      if (idx >= 0) {
+        const prev = MATCHES[idx];
+        const scoreChanged =
+          prev.score.home !== m.score.home ||
+          prev.score.away !== m.score.away;
+        MATCHES[idx] = { ...prev, ...m };
+        if (scoreChanged) {
+          const card = document.querySelector(`[data-match-id="${m.id}"]`);
+          if (card) {
+            card.classList.add('goal-flash');
+            setTimeout(() => card.classList.remove('goal-flash'), 1500);
+          }
+        }
+      } else {
+        MATCHES.push(m);
+      }
     });
 
     if (typeof renderMatches === 'function') renderMatches();
   }, 30000);
+}
+
+// ─── H2H ──────────────────────────────────────────────────────────────────────
+async function fetchH2H(homeKey, awayKey) {
+  const homeTeam = TEAMS[homeKey];
+  const awayTeam = TEAMS[awayKey];
+  if (!homeTeam?.apiId || !awayTeam?.apiId) return [];
+  const data = await apiFetch(`/fixtures/headtohead?h2h=${homeTeam.apiId}-${awayTeam.apiId}&last=5`);
+  return (data.response || []).map(f => mapFixture(f)).filter(Boolean);
 }

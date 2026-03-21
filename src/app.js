@@ -1,14 +1,19 @@
-/* GoalPulse — app.js */
+/* CamoGoal — app.js */
 
 // ─── State ────────────────────────────────────────────────────────────────────
 let currentView   = 'scores';
 let currentLeague = 'all';
 let currentStatus = 'all';
 let currentDate   = 0;
+let currentSeason = 2025;
 let searchQuery   = '';
 let expandedLeagues = {};
 let liveMinutes   = {};
 let tickerInterval = null;
+let countdownInterval = null;
+let favorites = new Set(JSON.parse(localStorage.getItem('cg_favorites') || '[]'));
+let searchHistory = JSON.parse(localStorage.getItem('cg_search_history') || '[]');
+let currentModalMatch = null; // for share
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
@@ -20,19 +25,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (m.status === 'live') liveMinutes[m.id] = m.minute;
   });
 
-  renderAll();            // dummy data ile anlık render (hızlı ilk yükleme)
+  showSkeleton();
 
   if (typeof initAPI === 'function') {
-    await initAPI();      // API'den gerçek veri çek
+    await initAPI();
     MATCHES.forEach(m => {
       if (m.status === 'live') liveMinutes[m.id] = m.minute;
     });
-    renderAll();          // gerçek veri ile re-render
     if (typeof startAPIRefresh === 'function') startAPIRefresh();
   }
 
+  renderAll();
   startLiveTicker();
+  startCountdownTicker();
   setupSearch();
+  setupPullToRefresh();
   updateThemeIcon();
 });
 
@@ -41,6 +48,32 @@ function renderAll() {
   renderDateTabs();
   renderView();
   updateNavActive();
+}
+
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+function showSkeleton() {
+  const container = document.getElementById('matches-container');
+  if (!container) return;
+  const skRow = () => `
+    <div class="skeleton-row">
+      <div style="display:flex;align-items:center;gap:10px;flex:1">
+        <div class="skeleton" style="width:32px;height:32px;border-radius:50%;flex-shrink:0"></div>
+        <div class="skeleton" style="width:110px;height:12px"></div>
+      </div>
+      <div class="skeleton" style="width:72px;height:22px;border-radius:8px"></div>
+      <div style="display:flex;align-items:center;gap:10px;flex:1;justify-content:flex-end">
+        <div class="skeleton" style="width:110px;height:12px"></div>
+        <div class="skeleton" style="width:32px;height:32px;border-radius:50%;flex-shrink:0"></div>
+      </div>
+    </div>`;
+  container.innerHTML = Array(3).fill(0).map(() => `
+    <div class="league-group mb-4">
+      <div style="padding:12px 16px;display:flex;align-items:center;gap:12px">
+        <div class="skeleton" style="width:28px;height:28px;border-radius:50%;flex-shrink:0"></div>
+        <div class="skeleton" style="width:140px;height:13px"></div>
+      </div>
+      ${skRow()}${skRow()}
+    </div>`).join('');
 }
 
 function renderView() {
@@ -94,7 +127,11 @@ function getFilteredMatches() {
   else if (currentDate > 0) list = list.filter(m => m.status === 'upcoming');
 
   if (currentLeague !== 'all') list = list.filter(m => m.league === currentLeague);
-  if (currentStatus !== 'all') list = list.filter(m => m.status === currentStatus);
+  if (currentStatus === 'favorites') {
+    list = list.filter(m => favorites.has(m.home) || favorites.has(m.away));
+  } else if (currentStatus !== 'all') {
+    list = list.filter(m => m.status === currentStatus);
+  }
 
   if (searchQuery) {
     const q = searchQuery.toLowerCase();
@@ -170,52 +207,75 @@ function renderLeagueGroup(lid, matches) {
     </div>`;
 }
 
-function renderMatchRow(match, idx) {
+function renderMatchRow(match) {
   const home = TEAMS[match.home] || { name: match.home, shortName: '?', logo: '' };
   const away = TEAMS[match.away] || { name: match.away, shortName: '?', logo: '' };
   const isLive = match.status === 'live';
   const isUpcoming = match.status === 'upcoming';
+  const isFinished = match.status === 'finished';
   const minute = liveMinutes[match.id] || match.minute;
+  const homeFav = favorites.has(match.home);
+  const awayFav = favorites.has(match.away);
+
+  let scoreHtml;
+  if (isFinished) {
+    const hw = match.score.home > match.score.away;
+    const aw = match.score.away > match.score.home;
+    scoreHtml = `<p class="score-num" style="font-size:26px;font-weight:900">
+      <span style="color:${hw ? '#4ade80' : aw ? '#f87171' : 'var(--score-color)'}">${match.score.home}</span>
+      <span style="color:var(--score-sep);font-weight:300;margin:0 4px">:</span>
+      <span style="color:${aw ? '#4ade80' : hw ? '#f87171' : 'var(--score-color)'}">${match.score.away}</span>
+    </p>
+    <p style="font-size:10px;color:var(--text-7);margin-top:2px">BİTTİ</p>`;
+  } else if (isLive) {
+    scoreHtml = `<p class="score-num" style="font-size:26px;font-weight:900;color:var(--score-color)">
+      ${match.score.home}<span style="color:var(--score-sep);font-weight:300;margin:0 4px">:</span>${match.score.away}
+    </p>
+    <div style="display:flex;align-items:center;justify-content:center;gap:5px;margin-top:2px">
+      <span class="live-dot" style="width:5px;height:5px;background:#4ade80;border-radius:50%;display:inline-block;flex-shrink:0"></span>
+      <span id="minute-${match.id}" style="font-size:11px;font-weight:700;color:#4ade80">${minute}'</span>
+    </div>`;
+  }
 
   const centerBlock = isUpcoming
     ? `<div style="text-align:center;min-width:70px">
          <p style="font-size:17px;font-weight:700;color:var(--text-2);letter-spacing:-.01em">${match.kickoff}</p>
-         <p style="font-size:10px;color:var(--text-7);margin-top:2px">BAŞLAMADI</p>
+         <p class="countdown-timer" id="cd-${match.id}">…</p>
        </div>`
-    : `<div style="text-align:center;min-width:80px">
-         <p class="score-num" style="font-size:26px;font-weight:900;color:var(--score-color)">
-           ${match.score.home}<span style="color:var(--score-sep);font-weight:300;margin:0 4px">:</span>${match.score.away}
-         </p>
-         ${isLive
-           ? `<div style="display:flex;align-items:center;justify-content:center;gap:5px;margin-top:2px">
-                <span class="live-dot" style="width:5px;height:5px;background:#4ade80;border-radius:50%;display:inline-block;flex-shrink:0"></span>
-                <span id="minute-${match.id}" style="font-size:11px;font-weight:700;color:#4ade80">${minute}'</span>
-              </div>`
-           : `<p style="font-size:10px;color:var(--text-7);margin-top:2px">BİTTİ</p>`}
-       </div>`;
+    : `<div style="text-align:center;min-width:80px">${scoreHtml}</div>`;
+
+  const homeBold = isLive && match.score.home > match.score.away;
+  const awayBold = isLive && match.score.away > match.score.home;
 
   return `
     <div class="match-card league-match-row ${isLive ? 'match-card-live' : ''} px-4 py-3.5"
+         data-match-id="${match.id}"
          onclick="openModal(${match.id})">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
         <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
           <div class="team-logo">
             <img src="${home.logo}" alt="${home.shortName}"
                  onerror="this.parentElement.innerHTML='<span style=font-size:11px;font-weight:800;color:var(--text-2)>${home.shortName}</span>'">
           </div>
-          <span style="font-size:13px;font-weight:${isLive && match.score.home > match.score.away ? '700' : '500'};
-                       color:${isLive && match.score.home > match.score.away ? 'var(--score-color)' : 'var(--text-2)'};
+          <span style="font-size:13px;font-weight:${homeBold ? '700' : '500'};
+                       color:${homeBold ? 'var(--score-color)' : 'var(--text-2)'};
                        white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${home.name}</span>
         </div>
         ${centerBlock}
         <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;justify-content:flex-end">
-          <span style="font-size:13px;font-weight:${isLive && match.score.away > match.score.home ? '700' : '500'};
-                       color:${isLive && match.score.away > match.score.home ? 'var(--score-color)' : 'var(--text-2)'};
+          <span style="font-size:13px;font-weight:${awayBold ? '700' : '500'};
+                       color:${awayBold ? 'var(--score-color)' : 'var(--text-2)'};
                        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right">${away.name}</span>
           <div class="team-logo">
             <img src="${away.logo}" alt="${away.shortName}"
                  onerror="this.parentElement.innerHTML='<span style=font-size:11px;font-weight:800;color:var(--text-2)>${away.shortName}</span>'">
           </div>
+          <button class="fav-btn" onclick="toggleFavorite(event,'${match.home}','${match.away}')" title="Favorile">
+            <svg fill="${homeFav || awayFav ? '#facc15' : 'none'}" stroke="${homeFav || awayFav ? '#facc15' : 'var(--text-6)'}" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+            </svg>
+          </button>
         </div>
       </div>
     </div>`;
@@ -228,10 +288,22 @@ function toggleLeague(lid) {
   if (el) el.style.display = expandedLeagues[lid] === false ? 'none' : '';
 }
 
+// ─── Favorites ────────────────────────────────────────────────────────────────
+function toggleFavorite(e, homeId, awayId) {
+  e.stopPropagation();
+  [homeId, awayId].forEach(id => {
+    if (favorites.has(id)) favorites.delete(id);
+    else favorites.add(id);
+  });
+  localStorage.setItem('cg_favorites', JSON.stringify([...favorites]));
+  renderMatches();
+}
+
 // ─── Modal ────────────────────────────────────────────────────────────────────
 async function openModal(matchId) {
   const match = MATCHES.find(m => m.id === matchId);
   if (!match) return;
+  currentModalMatch = match;
   const home = TEAMS[match.home] || { name: match.home, shortName: '?', logo: '' };
   const away = TEAMS[match.away] || { name: match.away, shortName: '?', logo: '' };
   const league = LEAGUES[match.league];
@@ -298,11 +370,12 @@ function closeModal() {
 }
 
 function showModalTab(tab) {
-  ['events','stats'].forEach(t => {
+  ['events','stats','h2h'].forEach(t => {
     document.getElementById(`tab-btn-${t}`)?.classList.toggle('active', t === tab);
     const p = document.getElementById(`tab-${t}`);
     if (p) p.style.display = t === tab ? '' : 'none';
   });
+  if (tab === 'h2h' && currentModalMatch) loadH2H(currentModalMatch);
 }
 
 function renderModalEvents(match, home, away) {
@@ -383,17 +456,56 @@ function renderModalStats(match) {
 }
 
 // ─── Standings ────────────────────────────────────────────────────────────────
+function setStandingsSeason(year) {
+  currentSeason = year;
+  if (typeof setAPISeason === 'function') setAPISeason(year);
+  // STANDINGS'i temizle, yeni sezon verisi gelsin
+  Object.keys(STANDINGS).forEach(k => delete STANDINGS[k]);
+  renderStandings();
+  if (typeof loadStandingsIfNeeded === 'function') loadStandingsIfNeeded(year);
+}
+
 function renderStandings() {
   const container = document.getElementById('standings-container');
   if (!container) return;
+
+  // ── Sezon Seçici ────────────────────────────────────────────────────────────
+  const seasons = [2025, 2024, 2023, 2022, 2021, 2020];
+  const seasonSelector = `
+    <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:14px;gap:10px">
+      <span style="font-size:12px;font-weight:600;color:var(--text-5)">Sezon</span>
+      <div style="position:relative">
+        <select onchange="setStandingsSeason(+this.value)"
+                style="appearance:none;-webkit-appearance:none;
+                       background:var(--bg-surface);border:1px solid var(--border);
+                       color:var(--text-1);border-radius:10px;
+                       padding:7px 32px 7px 14px;font-size:13px;font-weight:600;
+                       cursor:pointer;outline:none;transition:all .18s">
+          ${seasons.map(y => `
+            <option value="${y}" ${y === currentSeason ? 'selected' : ''}>
+              ${y}/${String(y + 1).slice(2)}
+            </option>`).join('')}
+        </select>
+        <svg style="position:absolute;right:10px;top:50%;transform:translateY(-50%);
+                    width:12px;height:12px;color:var(--text-5);pointer-events:none"
+             fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </div>
+    </div>`;
+
   const leagues = currentLeague === 'all' ? Object.keys(STANDINGS) : [currentLeague].filter(l => STANDINGS[l]);
 
   if (!leagues.length) {
-    container.innerHTML = `<div class="empty-state"><p>Bu lig için puan durumu yok</p></div>`;
+    container.innerHTML = seasonSelector + `
+      <div class="empty-state">
+        <p style="font-size:28px;margin-bottom:10px">📊</p>
+        <p>${currentSeason}/${currentSeason + 1} sezonu puan durumu yükleniyor…</p>
+      </div>`;
     return;
   }
 
-  container.innerHTML = leagues.map(lid => {
+  container.innerHTML = seasonSelector + leagues.map(lid => {
     const league = LEAGUES[lid];
     const rows = STANDINGS[lid];
     if (!league || !rows) return '';
@@ -552,8 +664,8 @@ function renderStats() {
 function setView(view) {
   currentView = view;
   renderAll();
-  if (view === 'standings' && typeof loadStandingsIfNeeded === 'function') loadStandingsIfNeeded();
-  if (view === 'stats'     && typeof loadScorersIfNeeded    === 'function') loadScorersIfNeeded();
+  if (view === 'standings' && typeof loadStandingsIfNeeded === 'function') loadStandingsIfNeeded(currentSeason);
+  if (view === 'stats'     && typeof loadScorersIfNeeded    === 'function') loadScorersIfNeeded(currentSeason);
 }
 
 function updateNavActive() {
@@ -587,11 +699,58 @@ function setStatus(status) {
 // ─── Search ───────────────────────────────────────────────────────────────────
 function setupSearch() {
   document.querySelectorAll('.js-search').forEach(inp => {
+    inp.addEventListener('focus', () => showSearchHistory(inp));
     inp.addEventListener('input', e => {
       searchQuery = e.target.value.trim();
+      hideSearchHistory();
       renderMatches();
     });
+    inp.addEventListener('blur', () => setTimeout(hideSearchHistory, 200));
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && searchQuery) {
+        saveSearchHistory(searchQuery);
+        hideSearchHistory();
+      }
+    });
   });
+}
+
+function saveSearchHistory(query) {
+  searchHistory = [query, ...searchHistory.filter(q => q !== query)].slice(0, 5);
+  localStorage.setItem('cg_search_history', JSON.stringify(searchHistory));
+}
+
+function showSearchHistory(inp) {
+  if (!searchHistory.length || inp.value) return;
+  let drop = document.getElementById('search-history-drop');
+  if (!drop) {
+    drop = document.createElement('div');
+    drop.id = 'search-history-drop';
+    drop.className = 'search-history-drop';
+    inp.parentElement.style.position = 'relative';
+    inp.parentElement.appendChild(drop);
+  }
+  drop.innerHTML = searchHistory.map(q => `
+    <div class="search-history-item" onmousedown="applySearch('${q.replace(/'/g, "\\'")}')">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      ${q}
+    </div>`).join('');
+  drop.style.display = 'block';
+}
+
+function hideSearchHistory() {
+  const drop = document.getElementById('search-history-drop');
+  if (drop) drop.style.display = 'none';
+}
+
+function applySearch(query) {
+  searchQuery = query;
+  document.querySelectorAll('.js-search').forEach(inp => inp.value = query);
+  renderMatches();
+  hideSearchHistory();
 }
 
 // ─── Dark Mode ────────────────────────────────────────────────────────────────
@@ -609,6 +768,30 @@ function updateThemeIcon() {
     : `<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>`;
 }
 
+// ─── Countdown Ticker ─────────────────────────────────────────────────────────
+function startCountdownTicker() {
+  clearInterval(countdownInterval);
+  countdownInterval = setInterval(() => {
+    MATCHES.forEach(m => {
+      if (m.status !== 'upcoming' || !m.kickoff) return;
+      const el = document.getElementById(`cd-${m.id}`);
+      if (!el) return;
+      const [h, mn] = m.kickoff.split(':').map(Number);
+      const matchDate = new Date();
+      matchDate.setDate(matchDate.getDate() + currentDate);
+      matchDate.setHours(h, mn, 0, 0);
+      const diff = matchDate - Date.now();
+      if (diff <= 0) { el.textContent = 'Başlıyor'; return; }
+      const hh = Math.floor(diff / 3600000);
+      const mm = Math.floor((diff % 3600000) / 60000);
+      const ss = Math.floor((diff % 60000) / 1000);
+      el.textContent = hh > 0
+        ? `${hh}s ${String(mm).padStart(2,'0')}d kaldı`
+        : `${mm}d ${String(ss).padStart(2,'0')}s kaldı`;
+    });
+  }, 1000);
+}
+
 // ─── Live Ticker ──────────────────────────────────────────────────────────────
 function startLiveTicker() {
   clearInterval(tickerInterval);
@@ -620,6 +803,98 @@ function startLiveTicker() {
       if (el) el.textContent = `${liveMinutes[m.id]}'`;
     });
   }, 60000);
+}
+
+// ─── Pull to Refresh ──────────────────────────────────────────────────────────
+function setupPullToRefresh() {
+  let startY = 0;
+  let triggered = false;
+  const bar = document.getElementById('ptr-bar');
+
+  document.addEventListener('touchstart', e => {
+    if (window.scrollY === 0) startY = e.touches[0].clientY;
+  }, { passive: true });
+
+  document.addEventListener('touchmove', e => {
+    if (!startY) return;
+    const diff = e.touches[0].clientY - startY;
+    if (diff > 70 && !triggered && currentView === 'scores') {
+      triggered = true;
+      if (bar) bar.classList.add('active');
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchend', async () => {
+    if (triggered) {
+      if (bar) bar.classList.add('active');
+      await setDate(currentDate);
+      if (bar) bar.classList.remove('active');
+    }
+    startY = 0;
+    triggered = false;
+  });
+}
+
+// ─── Share ────────────────────────────────────────────────────────────────────
+function shareModal() {
+  if (!currentModalMatch) return;
+  const m = currentModalMatch;
+  const home = TEAMS[m.home] || { name: m.home };
+  const away = TEAMS[m.away] || { name: m.away };
+  const league = LEAGUES[m.league];
+  let text;
+  if (m.status === 'upcoming') {
+    text = `${home.name} - ${away.name} | ${m.kickoff} | ${league?.name || ''} | CamoGoal`;
+  } else {
+    text = `${home.name} ${m.score.home}-${m.score.away} ${away.name} | ${league?.name || ''} | CamoGoal`;
+  }
+  if (navigator.share) {
+    navigator.share({ title: 'CamoGoal', text }).catch(() => {});
+  } else {
+    navigator.clipboard?.writeText(text).then(() => {
+      const btn = document.querySelector('.share-btn');
+      if (btn) { btn.style.background = 'rgba(74,222,128,.2)'; setTimeout(() => btn.style.background = '', 1500); }
+    }).catch(() => {});
+  }
+}
+
+// ─── H2H ──────────────────────────────────────────────────────────────────────
+async function loadH2H(match) {
+  const el = document.getElementById('tab-h2h');
+  if (!el) return;
+  el.innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--text-6);font-size:13px">Yükleniyor…</div>`;
+  if (typeof fetchH2H !== 'function') {
+    el.innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--text-6);font-size:13px">H2H verisi yok</div>`;
+    return;
+  }
+  try {
+    const matches = await fetchH2H(match.home, match.away);
+    if (!matches || !matches.length) {
+      el.innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--text-6);font-size:13px">Karşılaşma geçmişi bulunamadı</div>`;
+      return;
+    }
+    el.innerHTML = `
+      <div style="padding:12px 20px 8px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;font-weight:700;color:var(--text-5);text-transform:uppercase;letter-spacing:.05em">Son ${matches.length} Karşılaşma</span>
+      </div>` +
+      matches.map(hm => {
+        const mHome = TEAMS[hm.home] || { name: hm.home };
+        const mAway = TEAMS[hm.away] || { name: hm.away };
+        const hw = hm.score.home > hm.score.away;
+        const aw = hm.score.away > hm.score.home;
+        return `<div class="h2h-row">
+          <span style="font-size:12px;color:var(--text-3);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${mHome.name}</span>
+          <span class="h2h-score-badge">
+            <span style="color:${hw?'#4ade80':aw?'#f87171':'var(--text-2)'}">${hm.score.home}</span>
+            <span style="color:var(--text-6);margin:0 3px">-</span>
+            <span style="color:${aw?'#4ade80':hw?'#f87171':'var(--text-2)'}">${hm.score.away}</span>
+          </span>
+          <span style="font-size:12px;color:var(--text-3);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right">${mAway.name}</span>
+        </div>`;
+      }).join('');
+  } catch(e) {
+    el.innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--text-6);font-size:13px">H2H verisi yüklenemedi</div>`;
+  }
 }
 
 // ─── Keyboard ─────────────────────────────────────────────────────────────────
